@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <filesystem>
 #include <future>
 #include <iostream>
 #include <iterator>
@@ -69,6 +70,15 @@ std::string read_template_fixture(const char* path) {
     std::string source = read_file(path);
     if (!source.empty() && source.back() == '\n') { source.pop_back(); }
     return source;
+}
+
+bool official_tokenizer_fixtures_present() {
+    return std::filesystem::is_regular_file(
+               "/home/neroued/models/llm/qwen/Qwen3.6-27B/base-hf-bf16/tokenizer.json") &&
+           std::filesystem::is_regular_file(
+               "/home/neroued/models/llm/qwen/Qwen3.6-27B/base-hf-bf16/tokenizer_config.json") &&
+           std::filesystem::is_regular_file(
+               "/home/neroued/models/llm/qwen/Qwen3.6-27B/base-hf-bf16/generation_config.json");
 }
 
 const std::string& thinking_toggle_template_source() {
@@ -237,7 +247,7 @@ ninfer::PromptInput image_input() {
     return input;
 }
 
-bool near(float actual, float expected) { return std::abs(actual - expected) < 1.0e-6F; }
+bool nearly_equals(float actual, float expected) { return std::abs(actual - expected) < 1.0e-6F; }
 
 constexpr std::array<std::uint8_t, 32> kGradientDigest{
     0x1e, 0x8c, 0xd9, 0x22, 0x40, 0xfa, 0x10, 0x62, 0x7b, 0x60, 0x86, 0x8e, 0xe9, 0x66, 0x41, 0xa2,
@@ -1539,7 +1549,7 @@ int test_media_payload_outlives_frontend_cache() {
     const auto& data = FrontendFactory::inspect(survivor);
     return check(data.media_payloads.size() == 1 && data.media_payloads.front() &&
                      data.media_payloads.front()->patch_elements == 16 * 1536 &&
-                     near(bf16_value(data.media_payloads.front()->span().front()), -1.0F),
+                     nearly_equals(bf16_value(data.media_payloads.front()->span().front()), -1.0F),
                  "request-pinned media payload did not survive its Frontend cache owner");
 }
 
@@ -1687,22 +1697,27 @@ int test_media_preparation_cancellation() {
 int main() {
     const FrontendResources owned = resources();
     const Frontend frontend       = FrontendFactory::create_component(owned);
-    int failures                  = 0;
-    failures += test_official_tokenizer_merge();
+    const bool have_official      = official_tokenizer_fixtures_present();
+    if (!have_official) {
+        std::cerr << "SKIP: official Qwen3.6-27B tokenizer fixtures are unavailable; "
+                     "skipping official-fixture sub-tests\n";
+    }
+    int failures = 0;
+    if (have_official) { failures += test_official_tokenizer_merge(); }
     failures += test_bpe_merge_order();
-    failures += test_boundary_aware_tokenization();
-    failures += test_repeated_special_tokens_scan_linearly();
-    failures += test_bounded_tokenizer_prefix();
+    if (have_official) { failures += test_boundary_aware_tokenization(); }
+    if (have_official) { failures += test_repeated_special_tokens_scan_linearly(); }
+    if (have_official) { failures += test_bounded_tokenizer_prefix(); }
     failures += test_context_capacity_guard();
     failures += test_official_chat_template();
-    failures += test_ordered_instruction_turns();
+    if (have_official) { failures += test_ordered_instruction_turns(); }
     failures += test_reasoning_effort_chat_template();
     failures += test_rewrite_checkpoint_trace();
-    failures += test_adjacent_tool_message_boundary();
+    if (have_official) { failures += test_adjacent_tool_message_boundary(); }
     failures += test_official_resource_guards();
     failures += test_text_and_image_prepare(frontend);
-    failures += test_explicit_leading_instruction_cache_boundary();
-    failures += test_media_admission_uses_aggregate_resources(frontend);
+    if (have_official) { failures += test_explicit_leading_instruction_cache_boundary(); }
+    if (have_official) { failures += test_media_admission_uses_aggregate_resources(frontend); }
     failures += test_multimodal_prompt_over_removed_32k_cap(frontend);
     failures += test_attention_pairs_are_diagnostic(frontend);
     failures += test_video_prepare(frontend);

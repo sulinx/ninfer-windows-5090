@@ -311,7 +311,7 @@ __launch_bounds__(WarpsPerCta * 32, MinBlocksPerSm) __global__
     float l1 = 0.0F;
 
     auto issue_kv_tile = [&](int tile_k0, int physical_page) {
-        if constexpr (TokenTile == 1 && Bc == 32) {
+        {
             for (int chunk = tid; chunk < Bc / 8; chunk += Threads) {
                 const int key_l                 = chunk * 8;
                 const int key                   = tile_k0 + key_l;
@@ -322,19 +322,6 @@ __launch_bounds__(WarpsPerCta * 32, MinBlocksPerSm) __global__
                                               valid_keys * static_cast<int>(sizeof(__half)));
                 cp_async_zfill<16, Cache::cg>(&v_scale_s[key_l], &cache_v_scale[scale_offset],
                                               valid_keys * static_cast<int>(sizeof(__half)));
-            }
-        } else {
-            for (int key_l = tid; key_l < Bc; key_l += Threads) {
-                const int key = tile_k0 + key_l;
-                if (key >= split_start && key < split_end) {
-                    const std::int64_t scale_offset = kv_cache_fp8_scale_index<Geometry>(
-                        physical_page, kv_head, key & kPagedKVPageMask);
-                    k_scale_s[key_l] = cache_k_scale[scale_offset];
-                    v_scale_s[key_l] = cache_v_scale[scale_offset];
-                } else {
-                    k_scale_s[key_l] = __float2half_rn(0.0F);
-                    v_scale_s[key_l] = __float2half_rn(0.0F);
-                }
             }
         }
 #pragma unroll 1

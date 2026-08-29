@@ -25,7 +25,7 @@ set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)        # clangd / IDE tooling
 if(MSVC)
-  add_compile_definitions(NOMINMAX)
+  add_compile_definitions(NOMINMAX NVTX_DISABLE)
   # C++ exceptions must be enabled for host .cpp files. CUDA passes /EHsc via
   # nvcc -Xcompiler, but plain cl.exe needs it here too; without it every
   # throw/try/catch (JSON parse rejection, invalid context-cost provenance,

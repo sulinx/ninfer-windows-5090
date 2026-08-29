@@ -395,7 +395,8 @@ enum class FinishDisposition : std::uint8_t {
 struct CheckpointRef {
     CheckpointKind kind    = CheckpointKind::SessionEndpoint;
     std::uint32_t frontier = 0;
-    std::uint32_t ordinal  = 0;
+    // Singleton checkpoint kinds use zero. LongAnchor uses a nonzero, per-continuation slot.
+    std::uint32_t ordinal = 0;
 
     [[nodiscard]] friend constexpr bool operator==(CheckpointRef, CheckpointRef) noexcept = default;
 };
@@ -497,6 +498,8 @@ struct BeginSummary {
     std::uint32_t prompt_tokens        = 0;
     std::uint32_t reused_prompt_tokens = 0;
     PrefixReusePath prefix_reuse_path  = PrefixReusePath::Root;
+
+    [[nodiscard]] friend constexpr bool operator==(BeginSummary, BeginSummary) noexcept = default;
 };
 
 struct GeneratedRound {

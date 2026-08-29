@@ -4,3 +4,4 @@
 # Force LF on checkout so fixture content matches those constants regardless of autocrlf.
 tests/fixtures/**/*.jinja text eol=lf
 tests/fixtures/**/*.json text eol=lf
+eval/corpora/perplexity-1m/**/*.txt text eol=lf

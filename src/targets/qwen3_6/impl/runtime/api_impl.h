@@ -133,40 +133,6 @@ RequestBasePlan<Variant>::shared_candidate_rebuild_work(std::uint32_t frontier) 
 }
 
 template <>
-AdmissionCandidate<Variant>::AdmissionCandidate(
-    std::unique_ptr<detail::AdmissionCandidateImpl<Variant>> impl) noexcept
-    : impl_(std::move(impl)) {}
-
-template <>
-AdmissionCandidate<Variant>::AdmissionCandidate(AdmissionCandidate&& other) noexcept
-    : impl_(std::move(other.impl_)) {}
-template <>
-AdmissionCandidate<Variant>&
-AdmissionCandidate<Variant>::operator=(AdmissionCandidate&& other) noexcept {
-    impl_ = std::move(other.impl_);
-    return *this;
-}
-template <>
-AdmissionCandidate<Variant>::~AdmissionCandidate() = default;
-
-template <>
-CapturePressureCandidate<Variant>::CapturePressureCandidate(
-    std::unique_ptr<detail::CapturePressureCandidateImpl<Variant>> impl) noexcept
-    : impl_(std::move(impl)) {}
-
-template <>
-CapturePressureCandidate<Variant>::CapturePressureCandidate(CapturePressureCandidate&& other) noexcept
-    : impl_(std::move(other.impl_)) {}
-template <>
-CapturePressureCandidate<Variant>&
-CapturePressureCandidate<Variant>::operator=(CapturePressureCandidate&& other) noexcept {
-    impl_ = std::move(other.impl_);
-    return *this;
-}
-template <>
-CapturePressureCandidate<Variant>::~CapturePressureCandidate() = default;
-
-template <>
 PressurePlanningSession<Variant>::PressurePlanningSession(
     std::unique_ptr<detail::PressurePlanningSessionImpl<Variant>> impl) noexcept
     : impl_(std::move(impl)) {}

@@ -34,6 +34,11 @@ if(MSVC)
   if(NOT CMAKE_CXX_FLAGS MATCHES "(^|[ -/])EHsc([ ;]|$)")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
   endif()
+  # Vendored spdlog bundles fmt, whose base.h static-asserts on Unicode support;
+  # MSVC must be told to use UTF-8 for both source and execution character sets.
+  if(NOT CMAKE_CXX_FLAGS MATCHES "(^|[ -/])utf-8([ ;]|$)")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
+  endif()
   # Ship symbolizable Release executables.
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
     foreach(_ninfer_rel_flag "/O2" "/Ob2" "/DNDEBUG" "/Zi")

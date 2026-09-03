@@ -314,6 +314,25 @@ AdmissionCandidate<NINFER_QWEN36_VARIANT>::identity_assessment() const noexcept 
     return impl_ != nullptr ? impl_->identity_assessment : empty;
 }
 
+#if defined(_MSC_VER)
+// MSVC omits non-inline explicit-specialization member definitions that are not odr-used within
+// the defining translation unit (GCC/Clang emit them unconditionally). The scheduler odr-uses
+// these PIMPL special members from other translation units, so taking their addresses here
+// forces emission from the variant translation unit. The function name is unique per variant
+// (NINFER_QWEN36_RUNTIME_NS) because each exact variant instantiates this shared source once.
+#define NINFER_WIN_EMIT_PIMPL_NAME_IMPL(ns) ninfer_win_emit_pimpl_##ns
+#define NINFER_WIN_EMIT_PIMPL_NAME(ns) NINFER_WIN_EMIT_PIMPL_NAME_IMPL(ns)
+extern "C" int NINFER_WIN_EMIT_PIMPL_NAME(NINFER_QWEN36_RUNTIME_NS)() noexcept {
+    using A = AdmissionCandidate<NINFER_QWEN36_VARIANT>;
+    using B = CapturePressureCandidate<NINFER_QWEN36_VARIANT>;
+    A& (A::*a_move_assign)(A&&) = &A::operator=;
+    B& (B::*b_move_assign)(B&&) = &B::operator=;
+    return (a_move_assign != nullptr) + (b_move_assign != nullptr);
+}
+#undef NINFER_WIN_EMIT_PIMPL_NAME
+#undef NINFER_WIN_EMIT_PIMPL_NAME_IMPL
+#endif
+
 } // namespace ninfer::targets::qwen3_6
 
 namespace ninfer::targets::qwen3_6::detail::NINFER_QWEN36_RUNTIME_NS {

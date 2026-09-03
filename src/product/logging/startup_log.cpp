@@ -5,8 +5,12 @@
 
 #include <spdlog/logger.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/ioctl.h>
 #include <unistd.h>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -76,9 +80,23 @@ PhasePresentation phase_presentation(StartupPhase phase) noexcept {
 }
 
 std::size_t terminal_columns() noexcept {
+#ifdef _WIN32
+    const HANDLE handle = ::GetStdHandle(STD_ERROR_HANDLE);
+    DWORD mode{};
+    if (::GetConsoleMode(handle, &mode) != 0) {
+      CONSOLE_SCREEN_BUFFER_INFO info{};
+      if (::GetConsoleScreenBufferInfo(handle, &info)) {
+        const auto left  = static_cast<std::ptrdiff_t>(info.srWindow.Left);
+        const auto right = static_cast<std::ptrdiff_t>(info.srWindow.Right);
+        if (right > left) { return static_cast<std::size_t>(right - left + 1); }
+      }
+    }
+    return 120;
+#else
     winsize size{};
     if (::ioctl(STDERR_FILENO, TIOCGWINSZ, &size) == 0 && size.ws_col != 0) { return size.ws_col; }
     return 120;
+#endif
 }
 
 std::string progress_bar(double ratio, std::size_t width) {

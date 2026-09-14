@@ -35,7 +35,7 @@ const ContextPrefillCost& generic_context_prefill_cost() {
 // Accepted project defaults live only in this table and are compiled into the binary. Runtime JSON
 // presets are independent local-machine overrides and never become a build dependency.
 const std::vector<ContextCostMachinePreset>& compiled_context_cost_defaults() {
-    static const std::vector<ContextCostMachinePreset> defaults{
+    static const std::vector<ContextCostMachinePreset> base_defaults{
         ContextCostMachinePreset{
             .hardware_class = "nvidia-geforce-rtx-5090-sm120",
             // Unified from the measured 2026-08-24 transfer corpus. A fresh machine-only transfer
@@ -78,6 +78,18 @@ const std::vector<ContextCostMachinePreset>& compiled_context_cost_defaults() {
                 },
         },
     };
+    // The RTX 5090 D (China SKU) slugs to "nvidia-geforce-rtx-5090-d-sm120" while this table only
+    // carries "nvidia-geforce-rtx-5090-sm120". Without its own row every lookup misses the whole
+    // machine and falls back to the generic estimate, which overprices prefill ~2.7x and attention
+    // pairs ~3.7x and steers the materialization planner into maximal fallback. The D shares the
+    // 5090's measured calibration.
+    static const std::vector<ContextCostMachinePreset> defaults = [] {
+        std::vector<ContextCostMachinePreset> rows = base_defaults;
+        ContextCostMachinePreset d_variant = rows.front();
+        d_variant.hardware_class = "nvidia-geforce-rtx-5090-d-sm120";
+        rows.push_back(d_variant);
+        return rows;
+    }();
     return defaults;
 }
 

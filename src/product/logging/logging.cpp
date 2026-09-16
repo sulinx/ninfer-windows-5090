@@ -5,7 +5,7 @@
 #include <spdlog/sinks/sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
-#if defined(_MSC_VER)
+#ifdef _WIN32
 #include <io.h>
 #else
 #include <unistd.h>
@@ -105,7 +105,7 @@ public:
             const std::time_t wall_seconds = std::chrono::system_clock::to_time_t(
                 std::chrono::system_clock::time_point(whole_seconds));
             std::tm local{};
-#if defined(_MSC_VER)
+#ifdef _WIN32
             localtime_s(&local, &wall_seconds);
 #else
             localtime_r(&wall_seconds, &local);
@@ -159,7 +159,7 @@ void report_logging_error(const std::string& message) noexcept {
 class ProgressAwareStderrSink final : public spdlog::sinks::sink {
 public:
     explicit ProgressAwareStderrSink(spdlog::color_mode color)
-#if defined(_MSC_VER)
+#ifdef _WIN32
         : sink_(color), interactive_(::_isatty(_fileno(stderr)) == 1) {}
 #else
         : sink_(color), interactive_(::isatty(STDERR_FILENO) == 1) {}

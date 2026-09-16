@@ -741,9 +741,22 @@ void validate_target_options(const execution::Parameters& parameters, DeviceCont
         options.max_context > parameters.model.config().draft->max_position_embeddings) {
         throw std::invalid_argument("max_context exceeds the selected draft position capacity");
     }
-    if (options.max_context == 0 ||
-        options.max_context > parameters.model.config().text.max_position_embeddings) {
-        throw std::invalid_argument("max_context exceeds the configured position capacity");
+    // YaRN only raises the ceiling the engine will ACCEPT (native x factor); a factor of 1
+    // leaves the check exactly as upstream ships it.
+    const double yarn_factor = options.rope_yarn_factor > 1.0F
+                                   ? static_cast<double>(options.rope_yarn_factor)
+                                   : 1.0;
+    const auto context_ceiling = static_cast<std::uint64_t>(
+        static_cast<double>(parameters.model.config().text.max_position_embeddings) * yarn_factor);
+    if (context_ceiling > ops::kCausalAttentionMaximumVisibleKeys) {
+        throw std::invalid_argument(
+            "rope_yarn_factor extends the context past the attention visible-keys ceiling"
+            " (native context x 4 is the supported maximum)");
+    }
+    if (options.max_context == 0 || options.max_context > context_ceiling) {
+        throw std::invalid_argument(
+            "max_context exceeds the configured position capacity"
+            " (raise --rope-yarn-factor to extend it)");
     }
     if (options.prefill_chunk == 0 || options.prefill_chunk % kPrefillChunkAlignment != 0) {
         throw std::invalid_argument("prefill_chunk must be a nonzero multiple of 128");

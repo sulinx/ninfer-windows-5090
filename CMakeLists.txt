@@ -25,7 +25,7 @@ set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)        # clangd / IDE tooling
 if(MSVC)
-  add_compile_definitions(NOMINMAX)
+  add_compile_definitions(NOMINMAX NVTX_DISABLE)
   # C++ exceptions must be enabled for host .cpp files. CUDA passes /EHsc via
   # nvcc -Xcompiler, but plain cl.exe needs it here too; without it every
   # throw/try/catch (JSON parse rejection, invalid context-cost provenance,
@@ -33,6 +33,11 @@ if(MSVC)
   # FAST_FAIL_GS_COOKIE_INITIALIZATION_FAILURE at run time.
   if(NOT CMAKE_CXX_FLAGS MATCHES "(^|[ -/])EHsc([ ;]|$)")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+  endif()
+  # Vendored spdlog bundles fmt, whose base.h static-asserts on Unicode support;
+  # MSVC must be told to use UTF-8 for both source and execution character sets.
+  if(NOT CMAKE_CXX_FLAGS MATCHES "(^|[ -/])utf-8([ ;]|$)")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8")
   endif()
   # Ship symbolizable Release executables.
   if(CMAKE_BUILD_TYPE STREQUAL "Release")

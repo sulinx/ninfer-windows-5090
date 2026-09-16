@@ -8,3 +8,7 @@ include(cmake/ProductTests.cmake)
 include(cmake/BenchSupportTests.cmake)
 include(models/qwen3_5/tests.cmake)
 include(ops/tests.cmake)
+
+ninfer_add_test(ninfer_yarn_test
+  SOURCES test_yarn.cpp
+  LIBRARIES ninfer_ops)

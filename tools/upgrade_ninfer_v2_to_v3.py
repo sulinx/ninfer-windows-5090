@@ -17,6 +17,23 @@ import struct
 import tempfile
 import uuid
 
+# --- Windows portability ---------------------------------------------------
+# os.posix_fadvise and os.fdatasync are Unix-only. Windows lacks both, so
+# degrade to a no-op (fadvise) and os.fsync (fdatasync); POSIX behaviour is
+# unchanged.
+if hasattr(os, "posix_fadvise"):
+
+    def fadvise_dontneed(fd, offset=0, length=0):
+        os.posix_fadvise(fd, offset, length, os.POSIX_FADV_DONTNEED)
+
+else:
+
+    def fadvise_dontneed(fd, offset=0, length=0):
+        return None
+
+
+fdatasync = getattr(os, "fdatasync", os.fsync)
+
 FORMATS = {
     "BF16": "bf16",
     "FP32": "fp32",
@@ -828,11 +845,10 @@ def upgrade(input_path, output_path):
                             )
                             if not chunk:
                                 raise ValueError("v2 payload ended prematurely")
-                            os.posix_fadvise(
+                            fadvise_dontneed(
                                 source.fileno(),
                                 source.tell() - len(chunk),
                                 len(chunk),
-                                os.POSIX_FADV_DONTNEED,
                             )
                         elif cursor < template_offset:
                             chunk = bytes(min(remaining, template_offset - cursor))
@@ -845,15 +861,13 @@ def upgrade(input_path, output_path):
                         pending += len(chunk)
                         if pending >= WRITEBACK:
                             output.flush()
-                            os.fdatasync(output.fileno())
-                            os.posix_fadvise(
-                                output.fileno(), 0, 0, os.POSIX_FADV_DONTNEED
-                            )
+                            fdatasync(output.fileno())
+                            fadvise_dontneed(output.fileno())
                             pending = 0
                     output.flush()
-                    os.fdatasync(output.fileno())
-                    os.posix_fadvise(output.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
-            os.posix_fadvise(source.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
+                    fdatasync(output.fileno())
+                    fadvise_dontneed(output.fileno())
+            fadvise_dontneed(source.fileno())
         for index in [*range(1, len(targets)), 0]:
             os.link(temporary[index], targets[index])
             published.append(targets[index])

@@ -1,8 +1,7 @@
 #pragma once
 
-// Product-side adapter between HTTP protocol requests and the public NInfer
-// engine. It owns one Engine and keeps protocol concerns (aliases, usage,
-// streaming callbacks, and tool-call parsing) outside the target package.
+// Product-side adapter from one protocol-neutral generation request to the public Engine. Wire
+// adapters normalize before this layer and render IDs, usage, and response events after it.
 
 #include "ninfer/engine.h"
 #include "serve/request.h"
@@ -23,12 +22,14 @@ struct RequestLifetime;
 struct RequestCapacity;
 
 struct GenerationMetrics {
-    double prepare_seconds = 0.0;
-    double ttft_seconds    = 0.0;
-    double vision_seconds  = 0.0;
-    double prefill_seconds = 0.0;
-    double decode_seconds  = 0.0;
-    double total_seconds   = 0.0;
+    double prepare_seconds         = 0.0;
+    double ttft_seconds            = 0.0;
+    double vision_seconds          = 0.0;
+    double prefill_seconds         = 0.0;
+    double decode_seconds          = 0.0;
+    double prompt_wall_seconds     = 0.0;
+    double generation_wall_seconds = 0.0;
+    double total_seconds           = 0.0;
     ninfer::GenerationEngineTiming engine_timing;
 
     SpeculativeBackend speculative_backend    = SpeculativeBackend::None;
@@ -46,20 +47,29 @@ struct GenerationMetrics {
 struct GenerationOutcome {
     std::string text;
     std::string reasoning;
-    std::vector<ToolCall> tool_calls;
+    std::vector<ninfer::GeneratedToolCall> tool_calls;
+    ninfer::ToolCallParseDiagnostics tool_call_parse;
     int prompt_tokens     = 0;
     int completion_tokens = 0;
     int reasoning_tokens  = 0;
     ninfer::ThinkingBudgetStats thinking;
-    std::size_t streamed_content_bytes = 0;
     ninfer::FinishReason finish_reason = ninfer::FinishReason::OutputLimit;
+    std::optional<std::string> matched_stop_string;
     GenerationMetrics metrics;
 };
 
 struct StreamSink {
+    std::function<void(const ninfer::GenerationStart& start)> on_start;
+    std::function<void(const ninfer::PromptProgress& progress)> on_progress;
+    std::function<void(const ninfer::GenerationTimingObservation& timing)> on_timing;
     std::function<void(const std::string& delta_text)> on_content;
     std::function<void(const std::string& delta_text)> on_reasoning;
     std::function<bool()> is_cancelled;
+};
+
+enum class GenerationConsumerMode : std::uint8_t {
+    Aggregate,
+    Streaming,
 };
 
 // Translate Engine request failures into the shared protocol-neutral HTTP error contract.
@@ -74,20 +84,17 @@ struct PreparedRequest {
     double prepare_seconds     = 0.0;
     double acquisition_seconds = 0.0;
     PromptPreparationStats preparation;
-    int prompt_tokens                = 0;
-    bool include_usage               = false;
-    bool tool_capable                = false;
-    std::size_t tool_name_max_length = 64;
-    bool enable_thinking             = true;
+    int prompt_tokens    = 0;
+    bool enable_thinking = true;
     std::optional<std::uint32_t> thinking_budget;
-    bool preserve_thinking                 = false;
-    bool preserve_thinking_semantic_change = false;
+    std::optional<ninfer::ReasoningEffort> reasoning_effort;
+    std::optional<bool> preserve_thinking;
     std::shared_ptr<RequestLifetime> lifetime;
 };
 
 class GenerationService {
 public:
-    explicit GenerationService(ServeOptions options, LoadProgress load_progress = {});
+    explicit GenerationService(ServeOptions options, StartupObserver startup_observer = {});
 
     [[nodiscard]] const ServeOptions& options() const noexcept { return options_; }
 
@@ -101,6 +108,8 @@ public:
 
     [[nodiscard]] ninfer::RuntimeStats runtime_stats() const { return engine_->runtime_stats(); }
 
+    [[nodiscard]] bool is_available() const { return engine_->is_available(); }
+
     [[nodiscard]] ninfer::MediaCacheSummary media_cache_summary() const {
         return engine_->media_cache_summary();
     }
@@ -110,8 +119,10 @@ public:
     }
 
     [[nodiscard]] PreparedRequest prepare(const GenerationRequest& req,
-                                          std::function<bool()> is_cancelled = {},
-                                          ContextCacheHints context_cache    = {}) const;
+                                          GenerationConsumerMode consumer_mode,
+                                          ninfer::GenerationObservationOptions observation = {},
+                                          std::function<bool()> is_cancelled               = {},
+                                          ContextCacheHints context_cache = {}) const;
     [[nodiscard]] int count_prompt_tokens(const GenerationRequest& req,
                                           std::function<bool()> is_cancelled = {}) const;
 
@@ -127,15 +138,21 @@ private:
         ReadWrite,
     };
 
-    [[nodiscard]] PreparedRequest prepare_impl(const GenerationRequest& req,
-                                               std::function<bool()> is_cancelled,
-                                               ContextCacheHints context_cache,
-                                               CacheParticipation cache_participation) const;
-    [[nodiscard]] std::shared_ptr<RequestLifetime> acquire_request_lifetime() const;
+    enum class DeadlinePolicy : std::uint8_t {
+        ClientPendingTimeout,
+        UnboundedStartup,
+    };
+
+    [[nodiscard]] PreparedRequest
+    prepare_impl(const GenerationRequest& req, GenerationConsumerMode consumer_mode,
+                 ninfer::GenerationObservationOptions observation,
+                 std::function<bool()> is_cancelled, ContextCacheHints context_cache,
+                 CacheParticipation cache_participation, DeadlinePolicy deadline_policy) const;
+    [[nodiscard]] std::shared_ptr<RequestLifetime>
+    acquire_request_lifetime(DeadlinePolicy deadline_policy) const;
 
     ServeOptions options_;
     std::unique_ptr<ninfer::Engine> engine_;
-    ninfer::PromptCapabilities prompt_capabilities_;
     std::shared_ptr<RequestCapacity> request_capacity_;
 };
 

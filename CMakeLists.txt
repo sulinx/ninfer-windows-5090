@@ -15,7 +15,7 @@ endif()
 project(ninfer LANGUAGES C CXX CUDA)
 
 # --- Global settings ---------------------------------------------------------
-option(NINFER_BUILD_APPS "Build the NInfer CLI and server" ON)
+option(NINFER_BUILD_APPS "Build the NInfer CLI, server and perplexity evaluator" ON)
 option(BUILD_TESTING "Build NInfer tests" OFF)
 option(NINFER_BUILD_BENCHMARKS "Build NInfer benchmarks" OFF)
 
@@ -56,62 +56,18 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if(CMAKE_GENERATOR MATCHES "Ninja")
-  set_property(GLOBAL PROPERTY JOB_POOLS cuda_link=1)
-  set(CMAKE_JOB_POOL_LINK cuda_link)
+  set_property(GLOBAL PROPERTY JOB_POOLS ninfer_link=1)
+  set(CMAKE_JOB_POOL_LINK ninfer_link)
 endif()
 
-if(CMAKE_CUDA_COMPILER_VERSION VERSION_LESS 13.1)
-  message(FATAL_ERROR
-    "NInfer requires CUDA 13.1 or newer; found CUDA compiler "
-    "${CMAKE_CUDA_COMPILER_VERSION}")
-endif()
-
-set(NINFER_BUILD_MEDIA_ACQUIRE OFF)
+# Tests also exercise product input, logging and protocol adapters.
+set(NINFER_BUILD_PRODUCT_SUPPORT OFF)
 if(NINFER_BUILD_APPS OR BUILD_TESTING)
-  set(NINFER_BUILD_MEDIA_ACQUIRE ON)
+  set(NINFER_BUILD_PRODUCT_SUPPORT ON)
 endif()
 
-set(NINFER_BUILD_PROMPT_INPUT OFF)
-if(NINFER_BUILD_APPS)
-  set(NINFER_BUILD_PROMPT_INPUT ON)
-endif()
-
-set(NINFER_BUILD_SERVE OFF)
-if(NINFER_BUILD_APPS OR BUILD_TESTING)
-  set(NINFER_BUILD_SERVE ON)
-endif()
-
-find_package(CUDAToolkit REQUIRED)
-if(WIN32)
-  # Windows: MSVC-compatible import libraries generated from MSYS2 .def files.
-  # DLLs live at C:/msys64/mingw64/bin/.
-  # Filtered include directories avoid shadowing MSVC system headers with
-  # MinGW versions (e.g. windows.h, winsock2.h, winnt.h).
-  add_library(PkgConfig::FFMPEG INTERFACE IMPORTED)
-  target_include_directories(PkgConfig::FFMPEG INTERFACE
-    "${PROJECT_SOURCE_DIR}/windows-libs/ffmpeg-include")
-  target_compile_definitions(PkgConfig::FFMPEG INTERFACE __STDC_CONSTANT_MACROS)
-  target_link_libraries(PkgConfig::FFMPEG INTERFACE
-    "${PROJECT_SOURCE_DIR}/windows-libs/avformat.lib"
-    "${PROJECT_SOURCE_DIR}/windows-libs/avcodec.lib"
-    "${PROJECT_SOURCE_DIR}/windows-libs/avutil.lib"
-    "${PROJECT_SOURCE_DIR}/windows-libs/swscale.lib")
-
-  if(NINFER_BUILD_MEDIA_ACQUIRE)
-    add_library(PkgConfig::LIBCURL INTERFACE IMPORTED)
-    target_include_directories(PkgConfig::LIBCURL INTERFACE
-      "${PROJECT_SOURCE_DIR}/windows-libs/curl-include")
-    target_link_libraries(PkgConfig::LIBCURL INTERFACE "${PROJECT_SOURCE_DIR}/windows-libs/libcurl.lib")
-  endif()
-else()
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
-    libavformat>=60 libavcodec>=60 libavutil>=58 libswscale>=7)
-  if(NINFER_BUILD_MEDIA_ACQUIRE)
-    pkg_check_modules(LIBCURL REQUIRED IMPORTED_TARGET libcurl>=7.85)
-  endif()
-endif()
-find_package(Threads REQUIRED)
+include(cmake/Dependencies.cmake)
+include(cmake/NinferTargets.cmake)
 
 # --- Subdirectories ----------------------------------------------------------
 add_subdirectory(src)

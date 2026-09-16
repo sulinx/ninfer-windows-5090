@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/weight.h"
 #include "core/tensor.h"
 
 #include <cuda_runtime.h>
@@ -14,8 +15,10 @@ void q5_linear_add_mma_r64_c16_launch(const Tensor& x, const Weight& w, Tensor& 
                                       cudaStream_t stream);
 void q5_linear_add_mma_r64_c24_launch(const Tensor& x, const Weight& w, Tensor& residual_out,
                                       cudaStream_t stream);
-void q5_linear_add_mma_r64_c64_launch(const Tensor& x, const Weight& w, Tensor& residual_out,
-                                      cudaStream_t stream);
+void q5_linear_add_mma_r64_c32_s3_launch(const Tensor& x, const Weight& w, Tensor& residual_out,
+                                         cudaStream_t stream);
+void q5_linear_add_mma_r64_c32_s4_launch(const Tensor& x, const Weight& w, Tensor& residual_out,
+                                         cudaStream_t stream);
 void q5_linear_add_mma_r64_c128_launch(const Tensor& x, const Weight& w, Tensor& residual_out,
                                        cudaStream_t stream);
 

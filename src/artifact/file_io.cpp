@@ -40,8 +40,23 @@ inline ssize_t pread(int fd, void* buffer, std::size_t count, file_off_t offset)
     if (_lseeki64(fd, offset, SEEK_SET) < 0) { return -1; }
     return static_cast<ssize_t>(read(fd, buffer, static_cast<unsigned long>(count)));
 }
+
+// MSVC fstat() uses struct _stat, whose st_size is a 32-bit long: it fails
+// with EOVERFLOW on files larger than 2 GiB (model artifacts are ~24 GiB).
+// _fstat64 reports the real 64-bit size.
+using file_stat_t = struct _stat64;
+inline int file_stat(int fd, file_stat_t* out) { return ::_fstat64(fd, out); }
 #else
 using file_off_t = off_t;
+using file_stat_t = struct stat;
+inline int file_stat(int fd, file_stat_t* out) { return ::fstat(fd, out); }
+#endif
+
+// MSVC opens files in text mode unless O_BINARY is given: reads then stop at
+// 0x1A (Ctrl+Z) and CRLF is rewritten to LF, which corrupts binary artifacts.
+// POSIX has no O_BINARY, so it degrades to a no-op there.
+#ifndef O_BINARY
+#define O_BINARY 0
 #endif
 
 namespace ninfer::artifact {
@@ -61,12 +76,12 @@ file_off_t file_offset(std::uint64_t offset) {
 } // namespace
 
 InputFile::InputFile(std::filesystem::path path) : path_(std::move(path)) {
-    fd_ = ::open(path_.string().c_str(), O_RDONLY | O_CLOEXEC);
+    fd_ = ::open(path_.string().c_str(), O_RDONLY | O_CLOEXEC | O_BINARY);
     if (fd_ < 0) { fail(path_, "open"); }
 
-    struct stat status {};
+    file_stat_t status {};
 
-    if (::fstat(fd_, &status) != 0) {
+    if (file_stat(fd_, &status) != 0) {
         const auto error = errno;
         ::close(fd_);
         fd_   = -1;
@@ -111,7 +126,7 @@ std::size_t InputFile::read_direct(std::uint64_t offset, std::span<std::byte> de
     }
     if (destination.empty()) { return 0; }
     if (direct_fd_ < 0) {
-        direct_fd_ = ::open(path_.string().c_str(), O_RDONLY | O_CLOEXEC | O_DIRECT);
+        direct_fd_ = ::open(path_.string().c_str(), O_RDONLY | O_CLOEXEC | O_DIRECT | O_BINARY);
         if (direct_fd_ < 0) { fail(path_, "open direct"); }
     }
     ssize_t read;

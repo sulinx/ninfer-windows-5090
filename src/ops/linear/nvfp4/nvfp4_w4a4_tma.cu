@@ -75,7 +75,9 @@ void launch_tma(const std::uint8_t* activation_codes, const std::uint8_t* activa
     }();
     (void)kConfigured;
 
-    const dim3 grid(Geometry::kOutputRows / Schedule::kBlockN, tokens / Schedule::kBlockM);
+    // The last M tile may be partial; the kernel bounds itself by the real token count.
+    const dim3 grid(Geometry::kOutputRows / Schedule::kBlockN,
+                    (tokens + Schedule::kBlockM - 1) / Schedule::kBlockM);
 #ifdef _WIN32
     Nvfp4W4a4TmaDescriptorBytes descriptor_bytes{};
     static_assert(sizeof(descriptor_bytes) == sizeof(descriptors));
@@ -95,11 +97,11 @@ void launch_tma(const std::uint8_t* activation_codes, const std::uint8_t* activa
         config.numAttrs         = 1;
         CUDA_CHECK(cudaLaunchKernelEx(&config, nvfp4_w4a4_tma_kernel<Geometry, Schedule, Epilogue,
                                                                          Output>,
-                                      descriptor_bytes, alpha, epilogue, output));
+                                      descriptor_bytes, alpha, epilogue, output, tokens));
     } else {
         nvfp4_w4a4_tma_kernel<Geometry, Schedule>
             <<<grid, Schedule::kThreads, kSharedBytes, stream>>>(descriptor_bytes, alpha, epilogue,
-                                                                 output);
+                                                                 output, tokens);
     }
 #else
     if (cluster_token_tiles && tokens == 1024) {
@@ -117,11 +119,11 @@ void launch_tma(const std::uint8_t* activation_codes, const std::uint8_t* activa
         config.numAttrs         = 1;
         CUDA_CHECK(cudaLaunchKernelEx(&config, nvfp4_w4a4_tma_kernel<Geometry, Schedule, Epilogue,
                                                                          Output>,
-                                      descriptors, alpha, epilogue, output));
+                                      descriptors, alpha, epilogue, output, tokens));
     } else {
         nvfp4_w4a4_tma_kernel<Geometry, Schedule>
             <<<grid, Schedule::kThreads, kSharedBytes, stream>>>(descriptors, alpha, epilogue,
-                                                                 output);
+                                                                 output, tokens);
     }
 #endif
     CUDA_CHECK(cudaGetLastError());

@@ -1,3 +1,4 @@
+#include <array>
 #include "artifact/binder.h"
 #include "artifact/fixture.h"
 #include "artifact/views.h"

@@ -3,6 +3,8 @@
 #include "artifact/materializer.h"
 #include "artifact/reader.h"
 
+#include <cstddef>
+#include <string_view>
 #include <optional>
 #include <span>
 #include <string>

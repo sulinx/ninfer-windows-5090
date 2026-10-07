@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/program/graph_execution.h"
 #include "models/qwen3_5/execution/linear.h"
 #include <cmath>

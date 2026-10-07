@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/program/prefix_identity.h"
 #include <algorithm>
 #include <bit>

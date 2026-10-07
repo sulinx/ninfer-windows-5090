@@ -1,3 +1,4 @@
+#include <array>
 #include "runtime/engine/context_cache/context_cost.h"
 
 #include <nlohmann/json.hpp>

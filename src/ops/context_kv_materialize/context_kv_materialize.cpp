@@ -1,3 +1,4 @@
+#include <array>
 #include "core/weight.h"
 #include "ninfer/ops/context_kv_materialize.h"
 

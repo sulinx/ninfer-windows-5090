@@ -4,6 +4,7 @@
 #include "models/qwen3_5/program/program.h"
 
 #include <cstdint>
+#include <span>
 
 namespace ninfer::models::qwen3_5 {
 

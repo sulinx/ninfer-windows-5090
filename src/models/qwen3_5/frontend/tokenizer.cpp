@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/frontend/tokenizer.h"
 
 #include "text/unicode.h"

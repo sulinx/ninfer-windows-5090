@@ -7,6 +7,7 @@
 #include <cuda_runtime_api.h>
 
 #include <cstdint>
+#include <optional>
 
 namespace ninfer::models::qwen3_5::detail {
 

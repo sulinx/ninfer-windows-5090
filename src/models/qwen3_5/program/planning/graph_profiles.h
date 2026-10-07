@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 #include "models/qwen3_5/program/program.h"
 
 namespace ninfer::models::qwen3_5::execution {

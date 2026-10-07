@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <optional>
+#include <string_view>
 #include "models/qwen3_5/frontend/tool_contract.h"
 #include "text/grammar.h"
 

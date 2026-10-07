@@ -1,3 +1,4 @@
+#include <array>
 #include "ops/context_kv_materialize/launch.h"
 #include "core/device.h"
 #include "ops/common/memory.cuh"

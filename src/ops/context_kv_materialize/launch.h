@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include "ninfer/ops/context_kv_materialize.h"
 
 namespace ninfer::ops::detail {

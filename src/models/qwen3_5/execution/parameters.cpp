@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/execution/parameters.h"
 
 #include "core/weight_view.h"

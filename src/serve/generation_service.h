@@ -14,6 +14,8 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
+#include <string_view>
 #include <string>
 #include <vector>
 

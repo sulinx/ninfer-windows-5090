@@ -4,6 +4,9 @@
 #include "artifact/schema.h"
 #include "core/weight_view.h"
 
+#include <cstddef>
+#include <string_view>
+#include <vector>
 #include <filesystem>
 #include <memory>
 #include <span>

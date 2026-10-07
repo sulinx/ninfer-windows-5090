@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/config.h"
 
 #include "artifact/schema.h"

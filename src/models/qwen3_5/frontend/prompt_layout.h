@@ -1,5 +1,8 @@
 #pragma once
 
+#include <optional>
+#include <span>
+#include <vector>
 #include "models/qwen3_5/frontend/chat_template.h"
 
 namespace ninfer::models::qwen3_5::frontend {

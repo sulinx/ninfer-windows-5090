@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include "core/nvtx.h"
 #include "ninfer/types.h"
 #include "runtime/contract/execution.h"

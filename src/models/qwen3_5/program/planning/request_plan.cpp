@@ -1,3 +1,4 @@
+#include <array>
 #include "models/qwen3_5/program/internal.h"
 #include "models/qwen3_5/program/program_impl.h"
 #include "models/qwen3_5/program/execution_context.h"

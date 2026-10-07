@@ -6,6 +6,8 @@
 #include "models/qwen3_5/weights.h"
 
 #include <map>
+#include <optional>
+#include <string_view>
 #include <span>
 #include <string>
 #include <vector>

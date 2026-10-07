@@ -8,6 +8,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <optional>
 #include <memory>
 #include <span>
 #include <string_view>

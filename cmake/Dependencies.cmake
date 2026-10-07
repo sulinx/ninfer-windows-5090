@@ -28,6 +28,9 @@ target_include_directories(ninfer::json INTERFACE
 # Source base for the custom-template frontend; consumers will link it explicitly.
 add_subdirectory(third_party/llama-jinja EXCLUDE_FROM_ALL)
 
+# CPU grammar source base; consumers will link it explicitly.
+add_subdirectory(third_party/xgrammar EXCLUDE_FROM_ALL)
+
 if(NINFER_BUILD_PRODUCT_SUPPORT)
   if(WIN32)
     add_library(PkgConfig::LIBCURL INTERFACE IMPORTED)

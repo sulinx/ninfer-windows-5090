@@ -75,10 +75,9 @@ enum class LinearPolicy : std::uint8_t {
  * weight problems and selects its kernel internally; a valid encoding and alignment do not imply
  * arbitrary N/K support. FP8 currently registers `[N,K]` in `{[14336,5120], [16384,5120],
  * [34816,5120], [248320,5120], [5120,6144], [5120,17408]}` at every positive T. The current NVFP4
- * problems register the five non-vocabulary FP8 geometries and accept every positive T. Q8 also
- * registers `[5120,25600]` at every positive T. BF16 registers `[14336,5120]`,
- * `[5120,6144]`, and `[256,5120]` at every positive T. Text and MTP packed-weight problems accept
- * every positive column extent T. Registered Vision problems accept raw-patch P in
+ * problems register the five non-vocabulary FP8 geometries and accept every positive T. Q8 and
+ * BF16 register the exact physical N/K problems in their format-owned shape registries. Text/MTP
+ * problems accept every positive column extent T. Registered Vision problems accept raw-patch P in
  * `{4,8,...,131072}` or merged-token V in `[1,32768]`; a matrix column does not inherently
  * represent a text token. FP32 is unsupported.
  *
@@ -96,11 +95,9 @@ enum class LinearPolicy : std::uint8_t {
  * `policy` specifies the permitted private activation-compute set. A permission does not require a
  * corresponding low-precision route: the resolved plan may remain A16 when that is the qualified
  * choice. Every policy permits the existing A16 implementations of BF16 and Q4/Q5/Q6/Q8.
- * FP8 accepts all three policies; AllowA8 and AllowA4 permit its A8 routes. Both resolve
- * `[14336,5120]` to A16 through T=11 and A8 from T=12; `[16384,5120]` to A16 through T=10 and A8
- * from T=11; `[34816,5120]` to A8 at T=1, A16 at T=2..4, and A8 from T=5; both `[5120,6144]` and
- * `[5120,17408]` resolve T<25 to A16 and T>=25 to A8. FP8 `[248320,5120]` admits A16Only, AllowA8,
- * and AllowA4; every policy retains A16 compute at every positive T. NVFP4 uses A16 for A16Only and
+ * FP8 accepts all three policies; AllowA8 and AllowA4 permit the private resolver to select a
+ * qualified A16 or A8 route for the registered problem and T. FP8 `[248320,5120]` retains A16
+ * compute under every policy at every positive T. NVFP4 uses A16 for A16Only and
  * AllowA8; AllowA4 permits the private resolver to select either a qualified A16 route or
  * activation quantization to NVFP4 at every positive T. The selected route depends only on the
  * registered problem and T.

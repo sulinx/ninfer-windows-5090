@@ -26,6 +26,11 @@ struct RoundStateSpec {
     bool causal_scoring          = false;
 };
 
+struct PrefillRoundHost {
+    TokenId sampled_token = 0;
+    ops::SamplingConfig sampling;
+};
+
 // Stable pinned/device transfer format for ordinary decode. The full fixed-size object is copied
 // once per round; only its exact-B prefixes are consumed by the model schedule.
 struct OrdinaryDecodeIngress {
@@ -67,6 +72,13 @@ struct MtpDecodeEgress {
     // Step-major: all B rows for proposal step 0, followed by all B rows for step 1, etc.
     std::array<TokenId, kMaximumConcurrency * kMtpDecodeMaximumDrafts> next_drafts{};
     std::array<std::int32_t, kMaximumConcurrency> next_extents{};
+};
+
+// Prefill binds the current chunk independently of the compact decode batch.
+struct DFlashPrefillIngress {
+    std::int32_t append_count           = 0;
+    std::int32_t state_destination_slot = 0;
+    std::int32_t full_kv_table_row      = 0;
 };
 
 // Stable pinned/device transfer formats for one exact-B DFlash transaction. The proposal is
@@ -112,7 +124,8 @@ struct MtpPrefillStateLayout {
 };
 
 struct DFlashPrefillStateLayout {
-    TensorRegion produced_count;
+    LayoutRegion ingress;
+    TensorRegion local_append_count;
 };
 
 struct MtpDecodeStateLayout {
@@ -207,7 +220,12 @@ struct MtpPrefillState {
 };
 
 struct DFlashPrefillState {
-    Tensor produced_count;
+    DeviceSpan ingress;
+    Tensor append_count;
+    Tensor state_destination_slot;
+    Tensor full_kv_table_row;
+    // Oversized chunks retain only their tail locally; full KV still uses append_count.
+    Tensor local_append_count;
 
     DFlashPrefillState() = default;
     DFlashPrefillState(DeviceSpan backing, const DFlashPrefillStateLayout& layout);

@@ -398,6 +398,33 @@ void launch_nvfp4_a4_tma_mma(const Nvfp4A4Operands& p, Output output, Epilogue e
     (void)nvfp4_prepare_shared<bytes, kernel, true>();
     for_each_token_slice(p.tokens, Schedule::kBlockTokens, [&](int offset, int count) {
         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, Schedule::kBlockTokens));
+        // Token tiles that share weight rows want to run together: the token-fastest raster
+        // already orders CTAs that way, and a cluster turns the ordering into a placement
+        // guarantee so the weight matrix is read once from L2 per cluster. Groups of four 256-token
+        // tiles (T = 1024, 2048, 4096, ...) are the measured shape; other grids keep the plain
+        // launch, including the ragged last prefill step.
+        constexpr bool kClusterable = Schedule::kBlockTokens == 256;
+        if constexpr (kClusterable) {
+            if (grid.y >= 4 && grid.y % 4 == 0) {
+                cudaLaunchAttribute attribute{};
+                attribute.id               = cudaLaunchAttributeClusterDimension;
+                attribute.val.clusterDim.x = 1;
+                attribute.val.clusterDim.y = 4;
+                attribute.val.clusterDim.z = 1;
+                cudaLaunchConfig_t config{};
+                config.gridDim          = grid;
+                config.blockDim         = dim3(Schedule::kThreads);
+                config.dynamicSmemBytes = bytes;
+                config.stream           = stream;
+                config.attrs            = &attribute;
+                config.numAttrs         = 1;
+                CUDA_CHECK(cudaLaunchKernelEx(
+                    &config, kernel, make_tma_descriptor_param(descriptors), p.alpha, epilogue,
+                    output, offset + count, p.rows, p.k, offset));
+                CUDA_CHECK(cudaGetLastError());
+                return;
+            }
+        }
         kernel<<<grid, Schedule::kThreads, bytes, stream>>>(
             make_tma_descriptor_param(descriptors), p.alpha, epilogue, output,
                                                             offset + count, p.rows, p.k, offset);

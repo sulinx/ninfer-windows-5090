@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -1189,9 +1192,20 @@ private:
             return left.priority.last_demand < right.priority.last_demand;
         }
         if (!left.priority.reused) {
+#if defined(_MSC_VER)
+            // MSVC x64 has no __int128. Both products are exact 64x64->128 values, so compare the
+            // high words first and fall through to the low words on equality.
+            const std::uint64_t left_high  = __umulh(left.loss, right.units);
+            const std::uint64_t left_low   = left.loss * right.units;
+            const std::uint64_t right_high = __umulh(right.loss, left.units);
+            const std::uint64_t right_low  = right.loss * left.units;
+            if (left_high != right_high) { return left_high < right_high; }
+            if (left_low != right_low) { return left_low < right_low; }
+#else
             const auto a = static_cast<unsigned __int128>(left.loss) * right.units;
             const auto b = static_cast<unsigned __int128>(right.loss) * left.units;
             if (a != b) { return a < b; }
+#endif
         }
         return left.order < right.order;
     }

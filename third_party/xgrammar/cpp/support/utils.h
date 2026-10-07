@@ -360,6 +360,11 @@ class Result {
 // to raise an error. This macro manually mark them as unreachable to avoid warnings.
 #ifdef __GNUC__
 #define XGRAMMAR_UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+// MSVC has no __builtin_unreachable; __assume(false) is its unreachable hint. Without it the
+// empty expansion makes MSVC report C4716 (value-returning visit lambda whose last branch
+// falls through) in grammar_compiler.cc.
+#define XGRAMMAR_UNREACHABLE() __assume(false)
 #else
 #define XGRAMMAR_UNREACHABLE()
 #endif

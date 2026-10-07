@@ -75,6 +75,28 @@ std::size_t parse_host_context_mib(const char* text) {
     if (fraction.size() > 20) {
         throw std::invalid_argument("--host-context-mib must resolve to a whole number of bytes");
     }
+#if defined(_MSC_VER)
+    // MSVC x64 has no __int128. With at most 20 fractional digits, 10^k = 2^k * 5^k and the
+    // "whole number of bytes" condition reduces to 5^k dividing the digit value, because the
+    // factor 2^20 of bytes_per_mib always supplies the 2^k factor. The byte part is then
+    // (n / 5^k) << (20 - k), which is below 2^40 and fits 64-bit arithmetic; 5^20 < 2^64, so the
+    // running remainder is exact.
+    std::uint64_t five_power = 1;
+    for (std::size_t index = 0; index < fraction.size(); ++index) { five_power *= 5U; }
+    std::uint64_t quotient  = 0;
+    std::uint64_t remainder = 0;
+    for (const char character : fraction) {
+        const std::uint64_t digit  = static_cast<std::uint64_t>(character - '0');
+        const std::uint64_t window = remainder * 10U + digit;
+        quotient                   = quotient * 10U + window / five_power;
+        remainder                  = window % five_power;
+    }
+    if (remainder != 0) {
+        throw std::invalid_argument("--host-context-mib must resolve to a whole number of bytes");
+    }
+    const std::size_t fractional_bytes = static_cast<std::size_t>(
+        quotient << static_cast<unsigned int>(20U - fraction.size()));
+#else
     unsigned __int128 numerator = 0;
     unsigned __int128 divisor   = 1;
     for (const char character : fraction) {
@@ -86,6 +108,7 @@ std::size_t parse_host_context_mib(const char* text) {
         throw std::invalid_argument("--host-context-mib must resolve to a whole number of bytes");
     }
     const std::size_t fractional_bytes = static_cast<std::size_t>(numerator / divisor);
+#endif
     const std::size_t whole_bytes      = whole_mib * bytes_per_mib;
     if (fractional_bytes > maximum - whole_bytes) {
         throw std::invalid_argument("--host-context-mib is out of range");

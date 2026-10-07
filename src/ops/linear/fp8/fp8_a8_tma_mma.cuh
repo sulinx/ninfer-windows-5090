@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ops/common/mbarrier.cuh"
+#include "ops/common/tma_descriptor_param.cuh"
 #include "ops/common/math.h"
 #include "ops/common/token_slices.h"
 #include "ops/linear/common/epilogue.cuh"
@@ -100,9 +101,11 @@ template <class Schedule, bool FullTokens, class Output, class Epilogue, bool Sp
           class RowPolicy = Fp8IdentityRows>
 __global__
 __launch_bounds__(Schedule::kThreads, Schedule::kMinBlocksPerSm) void fp8_a8_tma_mma_kernel(
-    const __grid_constant__ Fp8TmaDescriptors descriptors, Fp8A8Operands operands, Output output,
+    const __grid_constant__ TmaDescriptorParam<Fp8TmaDescriptors> descriptors_in, Fp8A8Operands operands,
+    Output output,
     Epilogue epilogue, RowPolicy row_policy, int token_offset, int count, Fp8TmaSplitKPlan plan,
     float* partials) {
+    const auto& descriptors = tma_descriptors(descriptors_in);
     constexpr int BT = Schedule::kBlockTokens, BR = Schedule::kBlockRows;
     constexpr int BK = Schedule::kBlockK, S = Schedule::kStages;
     const int k = Schedule::kStaticK ? Schedule::kStaticK : operands.k;
@@ -301,7 +304,8 @@ void launch_fp8_a8_tma_mma(const Fp8A8Operands& p, Output output, Epilogue epilo
             const int dynamic = fp8_prepare_shared<bytes, kernel, true>();
             const int grid    = Split ? plan.full_tiles + plan.split_ctas : blocks;
             kernel<<<grid, Schedule::kThreads, dynamic, stream>>>(
-                descriptors, p, output, epilogue, row_policy, offset, count, plan, partials);
+                make_tma_descriptor_param(descriptors), p, output, epilogue, row_policy, offset, count,
+                plan, partials);
             CUDA_CHECK(cudaGetLastError());
             if constexpr (Split) {
                 fp8_a8_tma_split_k_reduce<Schedule>

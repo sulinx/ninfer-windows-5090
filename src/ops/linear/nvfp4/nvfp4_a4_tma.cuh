@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ops/common/mbarrier.cuh"
+#include "ops/common/tma_descriptor_param.cuh"
 #include "ops/common/memory.cuh"
 #include "ops/common/mma.cuh"
 #include "ops/linear/nvfp4/nvfp4_schedule.cuh"
@@ -142,9 +143,10 @@ __device__ __forceinline__ void nvfp4_tma_load_2d(void* destination, const CUten
 template <class Schedule, class Epilogue, class OutputPolicy, class Rows>
 __global__
 __launch_bounds__(Schedule::kThreads, Schedule::kMinBlocksPerSm) void nvfp4_a4_tma_kernel(
-    const __grid_constant__ Nvfp4A4TmaDescriptors descriptors, float alpha,
+    const __grid_constant__ TmaDescriptorParam<Nvfp4A4TmaDescriptors> descriptors_in, float alpha,
     const __grid_constant__ Epilogue epilogue, const __grid_constant__ OutputPolicy output,
     int token_count, int output_rows, int input_rows, int token_offset) {
+    const auto& descriptors = tma_descriptors(descriptors_in);
     const int K               = Schedule::kStaticK ? Schedule::kStaticK : input_rows;
     constexpr int branches    = Rows::kPaired ? 2 : 1;
     constexpr int loaded_rows = Schedule::kBlockRows / branches;
@@ -396,7 +398,8 @@ void launch_nvfp4_a4_tma_mma(const Nvfp4A4Operands& p, Output output, Epilogue e
     (void)nvfp4_prepare_shared<bytes, kernel, true>();
     for_each_token_slice(p.tokens, Schedule::kBlockTokens, [&](int offset, int count) {
         const dim3 grid(p.rows / Schedule::kBlockRows, div_up(count, Schedule::kBlockTokens));
-        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(descriptors, p.alpha, epilogue, output,
+        kernel<<<grid, Schedule::kThreads, bytes, stream>>>(
+            make_tma_descriptor_param(descriptors), p.alpha, epilogue, output,
                                                             offset + count, p.rows, p.k, offset);
         CUDA_CHECK(cudaGetLastError());
     });

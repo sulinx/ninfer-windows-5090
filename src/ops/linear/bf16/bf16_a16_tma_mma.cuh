@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ops/common/mbarrier.cuh"
+#include "ops/common/tma_descriptor_param.cuh"
 #include "ops/linear/bf16/bf16_mma_common.cuh"
 #include "ops/linear/bf16/bf16_operands.h"
 #include "ops/common/token_slices.h"
@@ -90,8 +91,10 @@ inline constexpr int bf16_tma_scratch_bytes =
 template <class Schedule, bool FullTokens, class Output, class Epilogue>
 __global__
 __launch_bounds__(Schedule::kThreads, Schedule::kMinBlocksPerSm) void bf16_a16_tma_mma_kernel(
-    const __grid_constant__ Bf16TmaDescriptors descriptors, Output output, Epilogue epilogue,
+    const __grid_constant__ TmaDescriptorParam<Bf16TmaDescriptors> descriptors_in, Output output,
+    Epilogue epilogue,
     int rows, int input_rows, int token_offset, int count) {
+    const auto& descriptors = tma_descriptors(descriptors_in);
     constexpr int BR = Schedule::kBlockRows, BT = Schedule::kBlockTokens, BK = Schedule::kBlockK;
     constexpr int S   = Schedule::kStages;
     const int K       = Schedule::kStaticK ? Schedule::kStaticK : input_rows;
@@ -165,7 +168,7 @@ void launch_bf16_a16_tma_mma(const Bf16A16Operands& p, Output output, Epilogue e
                 bf16_tma_scratch_bytes<Schedule, Epilogue> + Schedule::kBarrierBytes;
             bf16_prepare_shared<bytes, kernel>();
             kernel<<<static_cast<unsigned>(blocks), Schedule::kThreads, bytes, stream>>>(
-                descriptors, output, epilogue, p.rows, p.k, offset, count);
+                make_tma_descriptor_param(descriptors), output, epilogue, p.rows, p.k, offset, count);
             CUDA_CHECK(cudaGetLastError());
         };
         if (count % Schedule::kBlockTokens == 0)
